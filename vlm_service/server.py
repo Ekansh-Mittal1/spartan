@@ -12,10 +12,11 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vlm_service")
 
-from .backends import get_backend
+from .backends import get_backend  # noqa: E402
 
-app = FastAPI(title="VLM Service", description="Local Qwen VLM for edge pipeline")
+app = FastAPI(title="VLM Service", description="Local VLM for edge pipeline (MLX / NanoLLM / TRT)")
 _backend = None
+_backend_name: str = ""
 
 
 class InferBody(BaseModel):
@@ -24,8 +25,9 @@ class InferBody(BaseModel):
 
 
 def _get_backend():
-    global _backend
+    global _backend, _backend_name
     if _backend is None:
+        _backend_name = (os.environ.get("VLM_BACKEND") or "mlx").lower()
         _backend = get_backend()
         _backend.load()
     return _backend
@@ -53,4 +55,5 @@ async def infer(body: InferBody):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "backend": os.environ.get("VLM_BACKEND", "mlx")}
+    backend_name = (os.environ.get("VLM_BACKEND") or "mlx").lower()
+    return {"status": "ok", "backend": backend_name}

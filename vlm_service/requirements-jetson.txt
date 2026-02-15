@@ -1,0 +1,18 @@
+# VLM service dependencies for Jetson Orin / Nano (VLM_BACKEND=nanollm)
+# Install AFTER setting up NanoLLM (see docs/JETSON_DEPLOY.md).
+
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+numpy<2
+Pillow>=9.0.0
+
+# NanoLLM must be installed separately:
+#   Option A: jetson-containers (recommended, pre-built)
+#     jetson-containers run $(autotag nano_llm)
+#   Option B: from source
+#     git clone https://github.com/dusty-nv/NanoLLM
+#     cd NanoLLM && pip install -e .
+#
+# Do NOT pip install nano_llm — it must come from the Jetson AI Lab repo.
