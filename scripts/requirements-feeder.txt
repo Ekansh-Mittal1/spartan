@@ -1,0 +1,4 @@
+# Camera feeder dependencies (run on Jetson host, outside Docker)
+# opencv-python should already be installed on JetPack (with GStreamer support)
+numpy<2
+websocket-client>=1.6.0

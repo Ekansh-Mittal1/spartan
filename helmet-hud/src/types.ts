@@ -22,6 +22,10 @@ export interface HudState {
   gps_lon: number;
   /** Fixed anchor bearing (deg from north) for IMU arrow; arrow points toward this. */
   anchor_heading_deg: number;
+  /** Currently active camera ID (the one being sent to VLM). Empty if none. */
+  active_camera_id: string;
+  /** All known camera IDs that have sent at least one frame. */
+  camera_ids: string[];
 }
 
 /** Per-eye rect from display config. */

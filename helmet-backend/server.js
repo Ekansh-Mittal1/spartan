@@ -51,13 +51,24 @@ const defaultHudState = () => ({
   gps_lat: 0,
   gps_lon: 0,
   anchor_heading_deg: 0,
+  /** Currently active camera ID (the one being sent to VLM). */
+  active_camera_id: "",
+  /** All known camera IDs that have sent at least one frame. */
+  camera_ids: [],
 });
 
 let hudState = defaultHudState();
 let worldUnderstanding = "";
 let clients = new Set();
-let latestFrame = null;
 let processing = false;
+
+// ── Multi-camera state ──────────────────────────────────────────────────────
+/** Per-camera latest frame buffer. Key = camera_id (e.g. "jetson-cam-0", "browser"). */
+const cameraFrames = new Map();
+/** Which camera the VLM pipeline reads from. Empty string = accept any / first seen. */
+let activeCameraId = "";
+/** Convenience: the frame the pipeline should process next (from the active camera). */
+let latestFrame = null;
 
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
@@ -227,23 +238,69 @@ const httpServer = createServer((_req, res) => {
 const wss = new WebSocketServer({ server: httpServer, path: "/ws/state" });
 httpServer.listen(PORT);
 
+/** Register a camera_id and update the HUD camera list. */
+function registerCamera(cameraId) {
+  if (!cameraId) return;
+  if (!hudState.camera_ids.includes(cameraId)) {
+    hudState.camera_ids.push(cameraId);
+    console.log(`Camera registered: ${cameraId}  (${hudState.camera_ids.length} total)`);
+  }
+  // Auto-set the first camera as active if none is set yet.
+  if (!activeCameraId) {
+    activeCameraId = cameraId;
+    hudState.active_camera_id = cameraId;
+    console.log(`Active camera auto-set: ${cameraId}`);
+  }
+}
+
+/** Accept a frame, store per-camera, and trigger the VLM pipeline if it's the active camera. */
+function ingestFrame(frameBuffer, cameraId) {
+  cameraId = cameraId || "browser";
+  registerCamera(cameraId);
+  cameraFrames.set(cameraId, frameBuffer);
+
+  // Only feed the VLM pipeline from the active camera.
+  if (cameraId === activeCameraId || !activeCameraId) {
+    latestFrame = frameBuffer;
+    setImmediate(pipeline);
+  }
+}
+
 wss.on("connection", (ws) => {
   clients.add(ws);
   ws.send(JSON.stringify(hudState));
   ws.on("message", (data, isBinary) => {
     if (isBinary) {
-      // Raw binary frame (e.g. direct JPEG bytes)
-      latestFrame = data;
-      setImmediate(pipeline);
+      // Raw binary frame (e.g. direct JPEG bytes) — no camera_id, use "browser"
+      ingestFrame(data, "browser");
       return;
     }
     // Text frame — ws@8 still delivers a Buffer; convert to string for JSON parsing
     const str = Buffer.isBuffer(data) ? data.toString("utf-8") : String(data);
     try {
       const msg = JSON.parse(str);
+
+      // Frame from browser or camera feeder: { type: "frame", data: "<base64>", camera_id?: "..." }
       if (msg.type === "frame" && typeof msg.data === "string") {
-        latestFrame = Buffer.from(msg.data, "base64");
-        setImmediate(pipeline);
+        ingestFrame(Buffer.from(msg.data, "base64"), msg.camera_id || "browser");
+        return;
+      }
+
+      // Switch active camera: { type: "set_active_camera", camera_id: "jetson-cam-2" }
+      if (msg.type === "set_active_camera" && typeof msg.camera_id === "string") {
+        activeCameraId = msg.camera_id;
+        hudState.active_camera_id = msg.camera_id;
+        console.log(`Active camera switched to: ${msg.camera_id}`);
+        broadcast();
+        return;
+      }
+
+      // Toggle thermal mode: { type: "set_thermal", thermal_on: true/false }
+      if (msg.type === "set_thermal" && typeof msg.thermal_on === "boolean") {
+        hudState.thermal_on = msg.thermal_on;
+        console.log(`Thermal mode: ${msg.thermal_on ? "ON" : "OFF"}`);
+        broadcast();
+        return;
       }
     } catch {
       // ignore malformed messages

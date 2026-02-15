@@ -124,6 +124,7 @@ function Viewport({
             ref={imgRef}
             src={streamUrl}
             alt=""
+            crossOrigin="anonymous"
             className="absolute opacity-0 pointer-events-none object-cover"
             style={{ width: viewportWidth, height: viewportHeight }}
             aria-hidden
@@ -231,8 +232,22 @@ function App() {
   const useExternalWs = Boolean(import.meta.env.VITE_WS_URL);
   const wsState = useHudState(useExternalWs ? getWsUrl() : "");
   const mockState = useMockState();
-  const { state, connected, sendFrame } = useExternalWs ? wsState : { ...mockState, sendFrame: () => {} };
+  const { state, connected, sendFrame, switchCamera, setThermal } = useExternalWs
+    ? wsState
+    : { ...mockState, sendFrame: () => {}, switchCamera: () => {}, setThermal: () => {} };
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Keyboard shortcut: T to toggle thermal mode
+  useEffect(() => {
+    if (!useExternalWs) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "t" || e.key === "T") {
+        setThermal(!state.thermal_on);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [useExternalWs, setThermal, state.thermal_on]);
 
   const scale = useScaleToFit();
 
@@ -349,23 +364,48 @@ function App() {
           Requesting camera…
         </div>
       )}
-      {/* {videoSource === "camera" && cameraStatus === "active" && cameraDevices.length > 0 && (
-        <div className="absolute top-4 left-4 z-10 rounded bg-black/80 px-3 py-2">
-          <label className="mr-2 text-xs text-slate-300">Camera:</label>
-          <select
-            value={selectedCameraId ?? ""}
-            onChange={(e) => setSelectedCameraId(e.target.value || null)}
-            className="rounded border border-cyan-500/50 bg-cyan-950/80 px-2 py-1 text-sm text-white focus:border-cyan-400 focus:outline-none"
-          >
-            <option value="">Default</option>
-            {cameraDevices.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>
-                {d.label}
-              </option>
-            ))}
-          </select>
+      {/* Jetson camera selector — shown when the backend reports multiple cameras (from camera_feeder.py) */}
+      {!stereoDotTest && useExternalWs && state.camera_ids.length > 1 && (
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded border border-cyan-500/40 bg-neutral-950/90 px-3 py-2 shadow-lg">
+          <span className="text-xs text-cyan-400 font-medium">CAM</span>
+          {state.camera_ids.map((camId) => (
+            <button
+              key={camId}
+              onClick={() => switchCamera(camId)}
+              className={`rounded px-2 py-1 text-xs font-mono transition-colors ${
+                camId === state.active_camera_id
+                  ? "bg-cyan-600 text-white"
+                  : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+              }`}
+            >
+              {camId.replace("jetson-cam-", "cam ")}
+            </button>
+          ))}
         </div>
-      )} */}
+      )}
+      {/* Single camera indicator (when only one Jetson camera is connected) */}
+      {!stereoDotTest && useExternalWs && state.camera_ids.length === 1 && state.active_camera_id && (
+        <div className="absolute top-4 left-4 z-10 rounded border border-cyan-500/30 bg-neutral-950/80 px-2 py-1 text-xs text-cyan-400 font-mono">
+          {state.active_camera_id.replace("jetson-cam-", "cam ")}
+        </div>
+      )}
+      {/* Thermal mode indicator + toggle (press T to toggle) */}
+      {!stereoDotTest && useExternalWs && (
+        <button
+          onClick={() => setThermal(!state.thermal_on)}
+          className={`absolute top-4 right-4 z-10 flex items-center gap-2 rounded border px-3 py-2 text-xs font-bold uppercase tracking-wider shadow-lg transition-colors ${
+            state.thermal_on
+              ? "border-red-500/60 bg-red-950/90 text-red-300 shadow-red-500/20"
+              : "border-neutral-600/40 bg-neutral-950/80 text-neutral-500 hover:border-neutral-500 hover:text-neutral-300"
+          }`}
+          title="Toggle thermal / infrared view (T)"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+          </svg>
+          {state.thermal_on ? "IR ON" : "IR"}
+        </button>
+      )}
       <div
         className="flex shrink-0 origin-center bg-black"
         style={{

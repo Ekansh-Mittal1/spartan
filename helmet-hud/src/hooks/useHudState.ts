@@ -19,6 +19,8 @@ const DEFAULT_STATE: HudState = {
   gps_lat: 0,
   gps_lon: 0,
   anchor_heading_deg: 0,
+  active_camera_id: "",
+  camera_ids: [],
 };
 
 const MAX_BACKOFF_MS = 10000;
@@ -49,6 +51,8 @@ function parseState(data: string): HudState {
     gps_lat: num(raw.gps_lat, DEFAULT_STATE.gps_lat),
     gps_lon: num(raw.gps_lon, DEFAULT_STATE.gps_lon),
     anchor_heading_deg: num(raw.anchor_heading_deg, DEFAULT_STATE.anchor_heading_deg),
+    active_camera_id: String(raw.active_camera_id ?? DEFAULT_STATE.active_camera_id),
+    camera_ids: Array.isArray(raw.camera_ids) ? (raw.camera_ids as unknown[]).map(String) : DEFAULT_STATE.camera_ids,
   };
 }
 
@@ -58,6 +62,10 @@ export function useHudState(wsUrl: string): {
   connected: boolean;
   /** Send a frame (base64 JPEG) to the backend for VLM. No-op if not connected. */
   sendFrame: (base64: string) => void;
+  /** Tell the backend to switch VLM inference to a different camera. */
+  switchCamera: (cameraId: string) => void;
+  /** Toggle thermal mode on/off. Camera feeder switches streams accordingly. */
+  setThermal: (on: boolean) => void;
 } {
   const [state, setState] = useState<HudState>(DEFAULT_STATE);
   const [connected, setConnected] = useState(false);
@@ -66,6 +74,16 @@ export function useHudState(wsUrl: string): {
   const sendFrame = useCallback((base64: string) => {
     const w = wsRef.current;
     if (w?.readyState === 1) w.send(JSON.stringify({ type: "frame", data: base64 }));
+  }, []);
+
+  const switchCamera = useCallback((cameraId: string) => {
+    const w = wsRef.current;
+    if (w?.readyState === 1) w.send(JSON.stringify({ type: "set_active_camera", camera_id: cameraId }));
+  }, []);
+
+  const setThermal = useCallback((on: boolean) => {
+    const w = wsRef.current;
+    if (w?.readyState === 1) w.send(JSON.stringify({ type: "set_thermal", thermal_on: on }));
   }, []);
 
   useEffect(() => {
@@ -120,5 +138,5 @@ export function useHudState(wsUrl: string): {
     };
   }, [wsUrl]);
 
-  return { state, connected, sendFrame };
+  return { state, connected, sendFrame, switchCamera, setThermal };
 }

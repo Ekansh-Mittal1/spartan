@@ -21,6 +21,8 @@ const INITIAL: HudState = {
   gps_lat: 37.7749,
   gps_lon: -122.4194,
   anchor_heading_deg: 120,
+  active_camera_id: "",
+  camera_ids: [],
 };
 
 export function useMockState(): { state: HudState; connected: true } {
