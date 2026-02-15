@@ -1,0 +1,15 @@
+# VLM service: Mac (MLX) and Jetson (TensorRT-LLM optional)
+# Use a dedicated venv to avoid NumPy 1.x vs 2.x conflicts with system scipy/sklearn.
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Pin NumPy < 2 so transformers/sklearn/scipy (pulled by mlx-vlm) don't clash with NumPy-1.x-built binaries
+numpy<2
+
+# MLX backend (Mac / Apple Silicon only)
+mlx-vlm>=0.0.14
+torchvision>=0.20.0  # required by transformers 5.x for Qwen2.5-VL video processor
+
+# TensorRT-LLM is platform-specific; install on Jetson per docs/JETSON_DEPLOY.md
+# tensorrt-llm  # uncomment on Jetson when using trt backend

@@ -1,0 +1,48 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# -----------------------------------------------------------------------------
+# Python (root, qwen_backend, vlm_service)
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env/
+*.egg-info/
+*.egg
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.manifest
+
+# -----------------------------------------------------------------------------
+# Node (helmet-backend, helmet-hud)
+# -----------------------------------------------------------------------------
+node_modules/
+dist/
+build/
+.next/
+out/
+.nuxt/
+.cache/
+*.tsbuildinfo
