@@ -2,6 +2,8 @@
 
 Helmet HUD with real-time vision (VLM) and world-context pipeline. Runs in browser + Node backend; VLM can be cloud (OpenAI) or local (Qwen on Mac/Jetson).
 
+DevPost: https://devpost.com/software/spartan-edge-ai-situational-helmet-for-first-responders
+
 ## Project layout
 
 | Directory | Description |
